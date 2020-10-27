@@ -12,22 +12,40 @@ import javax.imageio.ImageIO;
 public class PwmoFile
 {
 	File file;
+	public byte[] fileContent;
 	
-	float Thickness;
-	float ExposureTime; // 0x48
-	float OffTime;
-	float BottomExposureTime; // 0x50
-	int LayersNumber;
-	int BottomLayers;
+	//SECTION OFFSET
+	int offset_ANYCUBIC= 0;
+	int offset_HEADER = 0;
+	int offset_PREVIEW = 0;
+	int offset_LAYERDEF = 0;
 	
-	int Width = 1620;
-	int Height = 2560;
 	
-	int LayerDefOffset = -1;
+	//------HEADER OFFSET------
+	//0x06; 80?
+	//0x0A; 51?
+	int offset_LayerThickness = 0x0E;
+	int offset_ExposureTime = 0x12;
+	int offset_OffTime = 0x16;
+	int offset_BottomExposureTime = 0x1A;
+	int offset_BottomLayers = 0x1E;
+	int offset_ZLift = 0x22;
+	int offset_ZSpeed = 0x26;
+	int offset_ZRetract = 0x2A;
+	//0x2E; 6.024?
+	//0x32; 1?
+	int offset_ScreenX = 0x36;
+	int offset_ScreenY = 0x3A;
+	//0x3E; 6.024?
+	//0x42; 2.401?
+	//0x42; 2.401?
+	
+	// ------LAYERDEF OFFSET------
 	int LayerQty_offset = 0x08;
 	int FirstLayer_offset = 0x0C;
+	int SingleLayerData_size = 0x20;
 	
-	// Layer Offset
+	// LAYERDEF Single Layer Offset
 	int Padding1_offsetInLayer = 0x00;
 	int Padding2_offsetInLayer = 0x04;
 	int ZLiftDist_offsetInLayer = 0x08;
@@ -37,10 +55,22 @@ public class PwmoFile
 	int Padding3_offsetInLayer = 0x18;
 	int Padding4_offsetInLayer = 0x1C;
 	
+	
+	//------HEADER DATA------
+	float LayerThickness;
+	float ExposureTime;
+	float OffTime;
+	float BottomExposureTime;
+	float BottomLayers;
+	float ZLift;
+	float ZSpeed;
+	float ZRetract;
+	int ScreenX;
+	int ScreenY;
+	
+	//------LAYERDEF DATA------
 	int LayerQty;
 	LayerInfo[] Layers;
-	
-	ArrayList<BufferedImage> LayersImages = new ArrayList<BufferedImage>();
 	
 	public PwmoFile(File pFile)
 	{
@@ -50,116 +80,78 @@ public class PwmoFile
 	public void decode() throws IOException
 	{
 		int temp;
-		byte[] fileContent = Files.readAllBytes(file.toPath());
+		fileContent = Files.readAllBytes(file.toPath());
 		
-		// ExposureTime
-		temp = fileContent[0x48];
-		temp |= (fileContent[0x49] << 8);
-		temp |= (fileContent[0x4A] << 16);
-		temp |= (fileContent[0x4B] << 24);
-		ExposureTime = Float.intBitsToFloat(temp);
+		offset_ANYCUBIC = searchData(fileContent, "ANYCUBIC".getBytes("UTF-8"));
+		offset_HEADER = searchData(fileContent, "HEADER".getBytes("UTF-8"));
+		offset_PREVIEW = searchData(fileContent, "PREVIEW".getBytes("UTF-8"));
+		offset_LAYERDEF = searchData(fileContent, "LAYERDEF".getBytes("UTF-8"));
 		
-		// BottomExposureTime
-		temp = fileContent[0x50];
-		temp |= (fileContent[0x51] << 8);
-		temp |= (fileContent[0x52] << 16);
-		temp |= (fileContent[0x53] << 24);
-		BottomExposureTime = Float.intBitsToFloat(temp);
-		
-		decodeLayerDef(fileContent);
+		decodeHEADER();
+		decodeLAYERDEF();
 		
 	}
 	
-	public void decodeLayerDef(byte[] fileContent)
+	public void decodeHEADER()
 	{
-		LayerDefOffset = searchData(fileContent, "LAYERDEF".getBytes());
+		LayerThickness = readFloat(offset_HEADER + offset_LayerThickness);
+		ExposureTime = readFloat(offset_HEADER + offset_ExposureTime);
+		BottomExposureTime = readFloat(offset_HEADER+offset_BottomExposureTime);
+		OffTime = readFloat(offset_HEADER+offset_OffTime);
+		BottomLayers = readFloat(offset_HEADER+offset_BottomLayers);
+		ZLift = readFloat(offset_HEADER+offset_ZLift);
+		ZSpeed = readFloat(offset_HEADER+offset_ZSpeed);
+		ZRetract = readFloat(offset_HEADER+offset_ZRetract);
 		
-		LayerQty = readIntLE(fileContent, LayerDefOffset + LayerQty_offset);
+		ScreenX = readIntLE(offset_HEADER+offset_ScreenX);
+		ScreenY = readIntLE(offset_HEADER+offset_ScreenY);
+	}
+	
+	public void decodeLAYERDEF()
+	{
+		LayerQty = readIntLE(offset_LAYERDEF + LayerQty_offset);
 		
 		Layers = new LayerInfo[LayerQty];
 		
-		int LayerOff = LayerDefOffset + FirstLayer_offset;
+		int LayerOff = offset_LAYERDEF + FirstLayer_offset;
 		
 		for (int layer = 0; layer < LayerQty; layer++)
 		{
-			Layers[layer] = new LayerInfo();
-			Layers[layer].ZLiftDist = readFloat(fileContent, LayerOff + ZLiftDist_offsetInLayer);
-			Layers[layer].ZLiftSpeed = readFloat(fileContent, LayerOff + ZLiftSpeed_offsetInLayer);
-			Layers[layer].ExposureTime = readFloat(fileContent, LayerOff + ExposureTime_offsetInLayer);
-			Layers[layer].Height = readFloat(fileContent, LayerOff + LayerHeight_offsetInLayer);
-			LayerOff += 0x20;
+			Layers[layer] = new LayerInfo(this, layer);
+			Layers[layer].ZLiftDist = readFloat(LayerOff + ZLiftDist_offsetInLayer);
+			Layers[layer].ZLiftSpeed = readFloat(LayerOff + ZLiftSpeed_offsetInLayer);
+			Layers[layer].ExposureTime = readFloat(LayerOff + ExposureTime_offsetInLayer);
+			Layers[layer].Height = readFloat(LayerOff + LayerHeight_offsetInLayer);
+			LayerOff += SingleLayerData_size;
 		}
 		
 		// Start Read LayerImage
-		int startImageOffset = LayerOff;
+		int ImageOffset = LayerOff;
 		
 		for (int layer = 0; layer < LayerQty; layer++)
 		{
-			BufferedImage img = new BufferedImage(Width, Height, BufferedImage.TYPE_INT_RGB);
-			int imgX = 0;
-			int imgY = 0;
-			boolean done = false;
 			
-			while (!done)
+			Layers[layer].decodeLayer(ImageOffset);
+			ImageOffset = Layers[layer].end_offset;
+			
+			//Async Save Image
+			int ThLayer = layer;
+			new Thread()
 			{
-				byte generateCmd = fileContent[startImageOffset];
-				int lineSize = 0;
-				int lineColor = (generateCmd & 0xF0) >> 4;
-				
-				int RGBColor = lineColor * 17;
-				RGBColor = (RGBColor << 8) + lineColor * 17;
-				RGBColor = (RGBColor << 8) + lineColor * 17;
-				
-				// ExtendedSizeCmd
-				if (lineColor == 0x00 || lineColor == 0x0F)
+				@Override
+				public void run()
 				{
-					lineSize = (generateCmd & 0x0F);
-					lineSize = (lineSize << 8) + (fileContent[startImageOffset + 1] & 0xFF);
-					
-					startImageOffset += 2;
+					Layers[ThLayer].saveImageLayer();
+					Layers[ThLayer].unloadImageLayer();
 				}
-				else
-				{
-					lineSize = (generateCmd & 0x0F);
-					startImageOffset += 1;
-				}
-				
-				while (lineSize > 0)
-				{
-					if (imgX < Width)
-					{
-						img.setRGB(imgX, imgY, RGBColor);
-						imgX++;
-						
-						if ((imgX == Width - 1) && (imgY == Height - 1))
-						{
-							done = true;
-							break;
-						}
-					}
-					else if (imgX == Width && imgY < Height)
-					{
-						imgX = 0;
-						imgY++;
-						img.setRGB(imgX, imgY, RGBColor);
-						imgX++;
-					}
-					
-					lineSize--;
-				}
-			}
+			}.start();
 			
-			
-			Layers[layer].Image = img;
-			
-			File outputfile = new File("Layers", "layer" + layer + ".png");
-			Layers[layer].saveImageLayer(outputfile);
-
+			System.out.println("LayerDone: "+layer);
 		}
 		
 	}
 	
-	public int readIntLE(byte[] fileContent, int offset)
+	public int readIntLE(int offset)
 	{
 		int result = 0;
 		
@@ -169,27 +161,27 @@ public class PwmoFile
 		result <<= 8;
 		result |= (fileContent[offset + 1] & 0xFF);
 		result <<= 8;
-		result |= (fileContent[offset] & 0xFF);
+		result |= (fileContent[offset + 0] & 0xFF);
 		
 		return result;
 	}
 	
-	public int readIntBE(byte[] fileContent, int offset)
+	public int readIntBE(int offset)
 	{
 		int result = 0;
 		
-		result |= fileContent[offset];
+		result |= (fileContent[offset + 0] & 0xFF);
 		result <<= 8;
-		result |= fileContent[offset + 1];
+		result |= (fileContent[offset + 1] & 0xFF);
 		result <<= 8;
-		result |= fileContent[offset + 2];
+		result |= (fileContent[offset + 2] & 0xFF);
 		result <<= 8;
-		result |= fileContent[offset + 3];
+		result |= (fileContent[offset + 3] & 0xFF);
 		
 		return result;
 	}
 	
-	public float readFloat(byte[] fileContent, int offset)
+	public float readFloat(int offset)
 	{
 		byte[] b = new byte[4];
 		
@@ -222,6 +214,28 @@ public class PwmoFile
 		}
 		
 		return -1;
+	}
+	
+	
+	@Override
+	public String toString()
+	{
+		String result = "";
+		result += "LayerThickness: " + LayerThickness + System.lineSeparator();
+		result += "Normale ExposureTime: " + ExposureTime + System.lineSeparator();
+		result += "OffTime: " + OffTime + System.lineSeparator();
+		result += "Bottom ExposureTime: " + BottomExposureTime + System.lineSeparator();
+		result += "BottomLayers: " + BottomLayers + System.lineSeparator();
+		result += "ZLift: " + ZLift + System.lineSeparator();
+		result += "ZSpeed: " + ZSpeed + System.lineSeparator();
+		result += "ZRetract: " + ZRetract + System.lineSeparator();
+		
+		result += "ScreenX: " + ScreenX + System.lineSeparator();
+		result += "ScreenY: " + ScreenY + System.lineSeparator();
+		
+		result += "LayerQty: " + LayerQty + System.lineSeparator();
+		
+		return result;
 	}
 	
 }
