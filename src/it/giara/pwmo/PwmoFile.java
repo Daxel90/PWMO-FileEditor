@@ -1,32 +1,26 @@
 package it.giara.pwmo;
 
-import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
-import java.util.ArrayList;
-import java.util.Arrays;
-
-import javax.imageio.ImageIO;
 
 public class PwmoFile
 {
 	File file;
 	public byte[] fileContent;
 	
-	//SECTION OFFSET
-	int offset_ANYCUBIC= 0;
+	// SECTION OFFSET
+	int offset_ANYCUBIC = 0;
 	int offset_HEADER = 0;
 	int offset_PREVIEW = 0;
 	int offset_LAYERDEF = 0;
 	int offset_LAYERDEF_DATA = 0;
 	
-	
-	//------HEADER OFFSET------
-	//0x06; 80?
-	//0x0A; 51?
+	// ------HEADER OFFSET------
+	// 0x06; 80?
+	// 0x0A; 51?
 	int offset_LayerThickness = 0x0E;
 	int offset_ExposureTime = 0x12;
 	int offset_OffTime = 0x16;
@@ -35,13 +29,13 @@ public class PwmoFile
 	int offset_ZLift = 0x22;
 	int offset_ZSpeed = 0x26;
 	int offset_ZRetract = 0x2A;
-	//0x2E; 6.024?
-	//0x32; 1?
+	// 0x2E; 6.024?
+	// 0x32; 1?
 	int offset_ScreenX = 0x36;
 	int offset_ScreenY = 0x3A;
-	//0x3E; 6.024?
-	//0x42; 2.401?
-	//0x42; 2.401?
+	// 0x3E; 6.024?
+	// 0x42; 2.401?
+	// 0x42; 2.401?
 	
 	// ------LAYERDEF OFFSET------
 	int LayerQty_offset = 0x08;
@@ -58,8 +52,7 @@ public class PwmoFile
 	int Padding3_offsetInLayer = 0x18;
 	int Padding4_offsetInLayer = 0x1C;
 	
-	
-	//------HEADER DATA------
+	// ------HEADER DATA------
 	float LayerThickness;
 	float ExposureTime;
 	float OffTime;
@@ -71,14 +64,16 @@ public class PwmoFile
 	int ScreenX;
 	int ScreenY;
 	
-	//------LAYERDEF DATA------
+	// ------LAYERDEF DATA------
 	int LayerQty;
-	LayerInfo[] Layers;
+	public LayerInfo[] Layers;
 	
 	public PwmoFile(File pFile)
 	{
 		file = pFile;
 	}
+	
+	// -------------------------------------DECODE----------------------------------------
 	
 	public void decode() throws IOException
 	{
@@ -94,56 +89,19 @@ public class PwmoFile
 		
 	}
 	
-	public void encodeLAYERDEF_DATA() throws IOException
-	{
-		fileContent = Files.readAllBytes(file.toPath());
-		
-		int total_size = offset_LAYERDEF_DATA;
-		
-		//Encode Layers
-		for(int i = 0; i < LayerQty; i++)
-		{
-			Layers[i].encodeLayer();
-			System.out.println("LayerEncode: "+i);
-			total_size += Layers[i].encodedImageData.length;
-		}
-		
-		
-		byte[] newContent = new byte[total_size];
-		int progress = 0;
-		
-		//copio header
-		for(int i = 0 ; i< offset_LAYERDEF_DATA; i++)
-		{
-			newContent[progress++] = fileContent[i];
-		}
-		
-		// copio layers
-		for(int i = 0; i < LayerQty; i++)
-		{
-			for(int j = 0; j < Layers[i].encodedImageData.length; j++)
-			{
-				newContent[progress++] += Layers[i].encodedImageData[j];
-			}
-		}
-		
-		FileOutputStream stream = new FileOutputStream(new File(file.getParentFile().getAbsolutePath(),file.getName().replace(".pwmo","_out.pwmo"))); 
-		stream.write(newContent);
-	}
-	
 	public void decodeHEADER()
 	{
 		LayerThickness = readFloat(offset_HEADER + offset_LayerThickness);
 		ExposureTime = readFloat(offset_HEADER + offset_ExposureTime);
-		BottomExposureTime = readFloat(offset_HEADER+offset_BottomExposureTime);
-		OffTime = readFloat(offset_HEADER+offset_OffTime);
-		BottomLayers = readFloat(offset_HEADER+offset_BottomLayers);
-		ZLift = readFloat(offset_HEADER+offset_ZLift);
-		ZSpeed = readFloat(offset_HEADER+offset_ZSpeed);
-		ZRetract = readFloat(offset_HEADER+offset_ZRetract);
+		BottomExposureTime = readFloat(offset_HEADER + offset_BottomExposureTime);
+		OffTime = readFloat(offset_HEADER + offset_OffTime);
+		BottomLayers = readFloat(offset_HEADER + offset_BottomLayers);
+		ZLift = readFloat(offset_HEADER + offset_ZLift);
+		ZSpeed = readFloat(offset_HEADER + offset_ZSpeed);
+		ZRetract = readFloat(offset_HEADER + offset_ZRetract);
 		
-		ScreenX = readIntLE(offset_HEADER+offset_ScreenX);
-		ScreenY = readIntLE(offset_HEADER+offset_ScreenY);
+		ScreenX = readIntLE(offset_HEADER + offset_ScreenX);
+		ScreenY = readIntLE(offset_HEADER + offset_ScreenY);
 	}
 	
 	public void decodeLAYERDEF()
@@ -161,8 +119,8 @@ public class PwmoFile
 			Layers[layer].StartOffset = readIntLE(LayerOff + StartOffset_offsetInLayer);
 			Layers[layer].DataSize = readIntLE(LayerOff + DataSize_offsetInLayer);
 			
-			System.out.println(readIntLE(LayerOff + Padding3_offsetInLayer));
-			System.out.println(readIntLE(LayerOff + Padding4_offsetInLayer));
+			// System.out.println(readIntLE(LayerOff + Padding3_offsetInLayer));
+			// System.out.println(readIntLE(LayerOff + Padding4_offsetInLayer));
 			
 			Layers[layer].ZLiftDist = readFloat(LayerOff + ZLiftDist_offsetInLayer);
 			Layers[layer].ZLiftSpeed = readFloat(LayerOff + ZLiftSpeed_offsetInLayer);
@@ -180,7 +138,7 @@ public class PwmoFile
 			
 			Layers[layer].decodeLayer();
 			
-			//Async Save Image
+			// Async Save Image
 			int ThLayer = layer;
 			new Thread()
 			{
@@ -192,9 +150,72 @@ public class PwmoFile
 				}
 			}.start();
 			
-			System.out.println("LayerDecode: "+layer);
+			System.out.println("LayerDecode: " + layer);
 		}
 		
+	}
+	
+	// -------------------------------------ENCODE----------------------------------------
+	
+	public void encode() throws IOException
+	{
+		encodeLAYERDEF();
+	}
+	
+	public void encodeLAYERDEF() throws IOException
+	{
+		int total_size = offset_LAYERDEF_DATA;
+		
+		// Encode Layers
+		for (int i = 0; i < LayerQty; i++)
+		{
+			Layers[i].encodeLayer();
+			System.out.println("LayerEncode: " + i);
+			total_size += Layers[i].encodedImageData.length;
+		}
+		
+		// ricalcolo posizioni layer data
+		for (int i = 0; i < LayerQty; i++)
+		{
+			if (i > 0)
+			{
+				Layers[i].StartOffset = Layers[i - 1].StartOffset + Layers[i - 1].DataSize;
+			}
+			
+		}
+		
+		byte[] newContent = new byte[total_size];
+		int progress = 0;
+		
+		// copio prima parte del file fino a LAYERDEF_DATA
+		for (int i = 0; i < offset_LAYERDEF_DATA; i++)
+		{
+			newContent[progress++] = fileContent[i];
+		}
+		
+		// copio dati layers
+		for (int i = 0; i < LayerQty; i++)
+		{
+			// sovrascrivo info del layer
+			int layerHederOffset = offset_LAYERDEF + FirstLayer_offset + (SingleLayerData_size * i);
+			
+			writeIntLE(newContent, layerHederOffset + StartOffset_offsetInLayer, Layers[i].StartOffset);
+			writeIntLE(newContent, layerHederOffset + DataSize_offsetInLayer, Layers[i].DataSize);
+			writeFloat(newContent, layerHederOffset + ZLiftDist_offsetInLayer, Layers[i].ZLiftDist);
+			writeFloat(newContent, layerHederOffset + ZLiftSpeed_offsetInLayer, Layers[i].ZLiftSpeed);
+			writeFloat(newContent, layerHederOffset + ExposureTime_offsetInLayer, Layers[i].ExposureTime);
+			writeFloat(newContent, layerHederOffset + LayerHeight_offsetInLayer, Layers[i].Height);
+			
+			// scrivo data file
+			for (int j = 0; j < Layers[i].encodedImageData.length; j++)
+			{
+				newContent[progress++] += Layers[i].encodedImageData[j];
+			}
+		}
+		
+		FileOutputStream stream = new FileOutputStream(
+				new File(file.getParentFile().getAbsolutePath(), file.getName().replace(".pwmo", "_out.pwmo")));
+		stream.write(newContent);
 	}
 	
 	public int readIntLE(int offset)
@@ -212,19 +233,12 @@ public class PwmoFile
 		return result;
 	}
 	
-	public int readIntBE(int offset)
+	public void writeIntLE(byte[] buffer, int offset, int data)
 	{
-		int result = 0;
-		
-		result |= (fileContent[offset + 0] & 0xFF);
-		result <<= 8;
-		result |= (fileContent[offset + 1] & 0xFF);
-		result <<= 8;
-		result |= (fileContent[offset + 2] & 0xFF);
-		result <<= 8;
-		result |= (fileContent[offset + 3] & 0xFF);
-		
-		return result;
+		buffer[offset + 0] = (byte) (data & 0xFF);
+		buffer[offset + 1] = (byte) ((data >> 8) & 0xFF);
+		buffer[offset + 2] = (byte) ((data >> 16) & 0xFF);
+		buffer[offset + 3] = (byte) ((data >> 24) & 0xFF);
 	}
 	
 	public float readFloat(int offset)
@@ -237,6 +251,15 @@ public class PwmoFile
 		b[0] = fileContent[offset + 3];
 		
 		return ByteBuffer.wrap(b).getFloat();
+	}
+	
+	public void writeFloat(byte[] buffer, int offset, float value)
+	{
+		int intBits = Float.floatToIntBits(value);
+		buffer[offset + 3] = (byte) ((intBits >> 24) & 0xFF);
+		buffer[offset + 2] = (byte) ((intBits >> 16) & 0xFF);
+		buffer[offset + 1] = (byte) ((intBits >> 8) & 0xFF);
+		buffer[offset + 0] = (byte) ((intBits) & 0xFF);
 	}
 	
 	public int searchData(byte[] source, byte[] toSearch)
@@ -261,7 +284,6 @@ public class PwmoFile
 		
 		return -1;
 	}
-	
 	
 	@Override
 	public String toString()

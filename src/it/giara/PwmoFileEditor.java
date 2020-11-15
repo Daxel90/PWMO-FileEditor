@@ -18,7 +18,14 @@ public class PwmoFileEditor
 		Scanner scanner = new Scanner(System.in);
 		scanner.nextLine();
 		
-		file.encodeLAYERDEF_DATA();
+		file.Layers[0].ExposureTime = 5;
+		file.Layers[1].ExposureTime = 5;
+		file.Layers[2].ExposureTime = 5;
+		file.Layers[3].ExposureTime = 5;
+		file.Layers[4].ExposureTime = 180;
+		file.Layers[5].ExposureTime = 180;
+		
+		file.encode();
 		
 		
 //		try

@@ -24,6 +24,7 @@ public class LayerInfo
 	public PwmoFile origin;
 	
 	File imageFile;
+	File patchedImageFile;
 	byte[] encodedImageData;
 	public BufferedImage Image;
 	
@@ -33,6 +34,8 @@ public class LayerInfo
 		LayerNumber = layerN;
 		
 		imageFile = new File("temp","Layer"+layerN+".png");
+		patchedImageFile = new File("patchLayer","Layer"+layerN+".png");
+		
 	}
 	
 	public void decodeLayer()
@@ -188,13 +191,18 @@ public class LayerInfo
 			encodedImageData[i] = (byte) encodedData.get(i);
 		}
 		
+		DataSize = encodedImageData.length;
+		
 		unloadImageLayer();
 	}
 	
 	
 	public void loadImageLayer()
 	{
-		Image = ImageUtils.readImage(imageFile);
+		if(patchedImageFile.exists())
+			Image = ImageUtils.readImage(patchedImageFile);
+		else
+			Image = ImageUtils.readImage(imageFile);
 	}
 	
 	public void unloadImageLayer()
